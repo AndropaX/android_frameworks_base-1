@@ -94,10 +94,7 @@
     <java-symbol type="string" name="reboot_confirm" />
     <java-symbol type="string" name="global_action_reboot" />
 
-    <!-- Extended Boosts for QPerformance -->
-    <!-- cpu boost on boot -->
-    <java-symbol type="bool" name="config_enableCpuBoostOnBoot" />
-    <java-symbol type="integer" name="onbootboost_duration" />
-    <java-symbol type="array" name="onbootboost_param_value" />
+    <!-- Use alternative way to blur lockscreen -->
+    <java-symbol type="bool" name="config_use_stackblur" />
 
 </resources> 

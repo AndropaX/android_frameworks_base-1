@@ -126,6 +126,7 @@ import com.android.internal.logging.MetricsLogger;
 import com.android.internal.logging.MetricsProto.MetricsEvent;
 import com.android.internal.statusbar.NotificationVisibility;
 import com.android.internal.statusbar.StatusBarIcon;
+import com.android.internal.util.xosp.Blur;
 import com.android.keyguard.KeyguardHostView.OnDismissAction;
 import com.android.keyguard.KeyguardUpdateMonitor;
 import com.android.keyguard.KeyguardUpdateMonitorCallback;
@@ -460,6 +461,10 @@ public class PhoneStatusBar extends BaseStatusBar implements DemoMode,
         }
     };
 
+
+    private int mBlurRadius;
+    private Bitmap mBlurredImage = null;
+
     class SettingsObserver extends UserContentObserver {
         SettingsObserver(Handler handler) {
             super(handler);
@@ -472,6 +477,8 @@ public class PhoneStatusBar extends BaseStatusBar implements DemoMode,
             ContentResolver resolver = mContext.getContentResolver();
             resolver.registerContentObserver(Settings.System.getUriFor(
                     Settings.System.XOSP_NAVBAR_SWITCH), false, this, UserHandle.USER_ALL);
+		    resolver.registerContentObserver(Settings.System.getUriFor(
+                    Settings.System.LOCKSCREEN_BLUR_RADIUS), false, this);
             update();
         }
 
@@ -488,9 +495,12 @@ public class PhoneStatusBar extends BaseStatusBar implements DemoMode,
             
             mNavBarSwitch = Settings.System.getIntForUser(resolver,
                     Settings.System.XOSP_NAVBAR_SWITCH, 0, UserHandle.USER_CURRENT) == 1;
+			mBlurRadius = Settings.System.getInt(mContext.getContentResolver(),
+                    Settings.System.LOCKSCREEN_BLUR_RADIUS, 14);
             
             if (mNavigationBarView != null)
                 mNavigationBarView.updateNavBarIcons(mNavBarSwitch);
+
         }
     }
 
@@ -2340,6 +2350,8 @@ public class PhoneStatusBar extends BaseStatusBar implements DemoMode,
             return;
         }
 
+        Bitmap artworkBitmap=null;
+
         if (mBackdrop == null) {
             Trace.endSection();
             return; // called too early
@@ -2360,7 +2372,7 @@ public class PhoneStatusBar extends BaseStatusBar implements DemoMode,
 
         Drawable artworkDrawable = null;
         if (mMediaMetadata != null) {
-            Bitmap artworkBitmap = null;
+            artworkBitmap=null;
             artworkBitmap = mMediaMetadata.getBitmap(MediaMetadata.METADATA_KEY_ART);
             if (artworkBitmap == null) {
                 artworkBitmap = mMediaMetadata.getBitmap(MediaMetadata.METADATA_KEY_ALBUM_ART);
@@ -2382,6 +2394,12 @@ public class PhoneStatusBar extends BaseStatusBar implements DemoMode,
                         && mStatusBarKeyguardViewManager.isShowing();
             }
         }
+
+        // apply blurred image
+        if (artworkBitmap == null) {
+        	artworkBitmap = mBlurredImage;
+			// might still be null
+		}
 
         boolean hideBecauseOccluded = mStatusBarKeyguardViewManager != null
                 && mStatusBarKeyguardViewManager.isOccluded();
@@ -5240,6 +5258,24 @@ public class PhoneStatusBar extends BaseStatusBar implements DemoMode,
         updateDozingState();
         Trace.endSection();
     }
+
+    public void setBackgroundBitmap(Bitmap bmp) {
+        if (bmp == null && mBlurredImage == null) return;
+
+        if (bmp != null && mBlurRadius != 0) {
+            mBlurredImage = Blur.blurBitmap(mContext, bmp, mBlurRadius);
+        } else {
+            mBlurredImage = bmp;
+        }
+
+        mHandler.post(new Runnable() {
+            @Override
+            public void run() {
+                updateMediaMetaData(true,true);
+            }
+        });
+    }
+
 
     private final class ShadeUpdates {
         private final ArraySet<String> mVisibleNotifications = new ArraySet<String>();
